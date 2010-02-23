@@ -46,7 +46,9 @@ int main (int argc, char** argv)
     particle_t* cur = particles;
     for (int i = 0; i < n; ++i)
     {
-      move (*cur);
+    //fprintf(stderr, "particles=%p, particles+n=%p, this one=%p\n", particles, particles + n-1, cur);
+
+      cur->ax = cur->ay = 0.;
 
       // Bin current particle
       if (Bins->Assign(*cur) == -1)
@@ -61,15 +63,22 @@ int main (int argc, char** argv)
       worklist.pop_front();
     }
 
+    for (int i = 0; i < n; ++i)
+      move (particles[i]);
+
     if( fsave && (step%SAVEFREQ) == 0 )
       save( fsave, n, particles );
+    
   }
+
   simulation_time = read_timer( ) - simulation_time;
 
   printf( "n = %d, simulation time = %g seconds\n", n, simulation_time );
 
-  free( particles );
   if( fsave )
     fclose( fsave );
+
+  free (particles);
+  Bins = BinArray::Destroy();
   return 0;
 }

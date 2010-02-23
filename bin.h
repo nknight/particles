@@ -12,6 +12,7 @@ class BinArray
   /* Only this function can call the constructor. It returns a pointer to a static variable, so
    * it too must be static */
   static BinArray* Instance( double, double );
+  static BinArray* Destroy ();
 
   /* Other methods */
   void Refresh();
@@ -33,7 +34,7 @@ class BinArray
 
   };
 
-
+  ~BinArray ();
   BinArray () { }
   BinArray (double, double);
   BinArray (const BinArray&) { }

@@ -6,6 +6,12 @@
 
 #include "bin.h"
 
+BinArray::~BinArray ()
+{
+  delete [] bins;
+  delete nil;
+}
+
 BinArray::BinArray (double size, double cutoff)
 {
   this->size = size;
@@ -76,6 +82,18 @@ BinArray* BinArray::Instance (double size, double cutoff)
 
   return p_instance;
 }
+
+BinArray* BinArray::Destroy ()
+{
+  if (p_instance != NULL)
+    delete p_instance;
+
+  p_instance = NULL;
+
+  return p_instance;
+}
+
+
 
 int BinArray::Assign (particle_t& particle)
 {

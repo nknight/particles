@@ -8,6 +8,7 @@ inline int max( int a, int b ) { return a > b ? a : b; }
 //  saving parameters
 //
 const int NSTEPS = 1000;
+//const int NSTEPS = 1;
 const int SAVEFREQ = 10;
 
 //
