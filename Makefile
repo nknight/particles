@@ -1,13 +1,16 @@
+CC = gcc
 CXX = g++
 
+
+CFLAGS = -Wall -g
 CXXFLAGS = -Wall -g
 LDFLAGS = 
 
 INCLUDES = -I.
-LDLIBS =
+LDLIBS = -lpthread
 
 .PHONY : all
-all : sim sim-naive
+all : sim sim_shared sim-naive
 
 sim : sim.o bin.o common.o
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
@@ -15,7 +18,17 @@ sim : sim.o bin.o common.o
 sim.o : serial.cpp bin.h common.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
+sim_shared : sim_shared.o bin_shared.o common.o 
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
+sim_shared.o : shared.cpp bin_shared.h common.h
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+bin_shared.o : bin_shared.cpp bin_shared.h common.h
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+#pthread_barrier.o : pthread_barrier.c pthread_barrier.h
+#	$(CC) $(CFLAGS) -c -o $@ $<
 
 sim-naive : sim-naive.o common.o
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
