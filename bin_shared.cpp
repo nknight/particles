@@ -21,7 +21,6 @@ BinArray::BinArray (double size, double cutoff)
   bins = new Bin[ dim_bins * dim_bins ];
 
     nil = new Bin;
-    nil->is_nil = true;
 
   Bin* cur = NULL;
   // Make neighbors
@@ -94,15 +93,13 @@ BinArray* BinArray::Destroy ()
   return p_instance;
 }
 
-
-
-int BinArray::Assign (particle_t& particle)
+void BinArray::Assign (particle_t& particle)
 {
   int bin_x = (int) floor(particle.x / cutoff);
   int bin_y = (int) floor(particle.y / cutoff);
 
   //fprintf (stderr, " attempting to put a particle in bin row %d col %d\n", bin_x, bin_y);
-  return (bins + bin_x + bin_y * dim_bins)->Assign (particle);
+  (bins + bin_x + bin_y * dim_bins)->Assign (particle);
 }
 
 void BinArray::Refresh ()
@@ -111,22 +108,12 @@ void BinArray::Refresh ()
     (bins + k)->Flush();
 }
 
-void BinArray::Bin::Mark (const BinArray::Bin* bin)
-{
- // printf (/*stderr,*/ "Markings is at address: %p\n", &markings);
-  markings.push_back(const_cast<BinArray::Bin*>(bin));
-}
-
-
-/* NOTE: if I bin and THEN evaluate forces, I can get by with .... */
-
 BinArray::Bin::Bin()
 {
-  // TODO: shameless hack:
-  is_nil = false;
   pthread_mutexattr_init (&attr);
   pthread_mutex_init (&lock, &attr);
 }
+
 BinArray::Bin::~Bin()
 {
   pthread_mutexattr_destroy (&attr);
@@ -134,117 +121,37 @@ BinArray::Bin::~Bin()
 }
     
 
-
-int BinArray::Bin::Assign (particle_t& new_guy)
+void BinArray::Bin::Assign (particle_t& new_guy)
 {
-  /* Acquire a lock on this bin, and clockwise around all neighbors */
-
-  int neighbor_locks[9] = {0,0,0,0,0,0,0,0,0}; 
-  bool success = true;
-
-  if (pthread_mutex_trylock ( &(this->lock) ) != 0)
-   return -1; 
-
-  for (int i = 0; i < 9; ++i)
-  {
-    if (i != 4)
-    {
-      //fprintf(stderr, "trylock:  %d\n", neighbor_locks[i]);
-      if (  (*(neighbors + i))->is_nil == false )
-      {
-	neighbor_locks[i] = pthread_mutex_trylock ( &((*(neighbors + i))->lock) );
-	if(neighbor_locks[i] != 0)
-	  success = false;
-      }
-    }
-  }
-  //fprintf(stderr, "attempting to lock\n");
-  if ( !success)
-  {
-    for (int i = 0; i < 9; ++i)
-      if (neighbor_locks[i] == 0)
-	if (  (*(neighbors + i))->is_nil == false )
-	  pthread_mutex_unlock ( &((*(neighbors + i))->lock) );
-
-    //fprintf(stderr, "deadlock detected.... to the worklist\n");
-    return -1;
-  }
-
-  // Compute forces with other particles in this bin, if already assigned
-  /* This section requires a write lock on this bin's particles */
-  if ( !particles.empty() )
-    for ( std::list<particle_t*>::iterator i = particles.begin() ;
-	i != particles.end();
-	++i )
-    {
-      apply_force ( **i, new_guy );
-      apply_force ( new_guy, **i );
-    }
+  pthread_mutex_lock ( &(this->lock) );
 
   // Add this particle to local list;
   particles.push_back(&new_guy);
 
-  // Mark neighbors
+  pthread_mutex_unlock ( &(this->lock) );
+}
+
+void BinArray::DoForces (particle_t& me)
+{
+
+  int bin_x = (int) floor(me.x / cutoff);
+  int bin_y = (int) floor(me.y / cutoff);
+
+  Bin *this_bin = bins + bin_x + bin_y * dim_bins;
+
+  //fprintf (stderr, " attempting to put a particle in bin row %d col %d\n", bin_x, bin_y);
+
+//  pthread_mutex_lock ( &(this_bin->lock) );
   for (int i = 0; i < 9; ++i)
-    if (i != 4)
-    {
-      (*(neighbors + i))->Mark(this);
-      /* No longer need a write lock on this neighbor's markings.
-       * Still need a write lock on their particles */
-    } /* Still need a write lock on my own particles and markings */
+    for ( std::list<particle_t*>::iterator itr = (*(this_bin->neighbors + i))->particles.begin() ;
+	itr != (*(this_bin->neighbors + i))->particles.end();
+	++itr )
+      apply_force ( me, **itr );
 
-
-  // TODO: markings must be all distinct to avoid double, etc. counting.
-
-  if ( !markings.empty() )
-  {
-
-    // Compute forces _from_ other particles in adjacent bins
-    for ( std::list<Bin*>::iterator b = markings.begin() ;
-	b != markings.end();
-	++b )
-      /* Bin b's particles must be locked */
-      for ( std::list<particle_t*>::iterator i = (*b)->particles.begin() ;
-	  i != (*b)->particles.end();
-	  ++i )
-	/* My particles must be locked too */
-	apply_force ( new_guy, **i );
-
-    /* Release write lock on this bin's particles - no more changes to
-     * new_guy from this call. 
-     * Maintain lock on my markings */
-
-
-    // Compute forces _on_ other particles in adjacent bins
-    for ( std::list<Bin*>::iterator b = markings.begin() ;
-	b != markings.end();
-	++b )
-      /* Bin b's particles must still be locked */
-      for ( std::list<particle_t*>::iterator i = (*b)->particles.begin() ;
-	  i != (*b)->particles.end();
-	  ++i )
-      {
-	apply_force ( **i, new_guy );
-      }
-    /* Release lock on b's particles */
-
-  }
-
-  /* Release lock on my markings */
-
-  /* Since we hold a lock on b's particles and my markings until the end, 
-   * probably better not to bother with random unlockings - not much can
-   * really happen */
-  for (int i = 0; i < 9; ++i)
-    if (  (*(neighbors + i))->is_nil == false )
-      pthread_mutex_unlock ( &((*(neighbors + i))->lock) );
-  //fprintf(stderr, "trylock:  %d\n", neighbor_locks[i]);
-
-  return 0;
+//  pthread_mutex_unlock ( &(this_bin->lock) );
 }
 
 void BinArray::Bin::Flush()
-{
+{  
   particles.clear();
-  markings.clear();
 }

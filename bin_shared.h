@@ -17,14 +17,14 @@ class BinArray
 
   /* Other methods */
   void Refresh();
-  int Assign (particle_t&);
+  void Assign (particle_t&);
+  void DoForces (particle_t&);
 
  private:
   class Bin
   {
    public:
-    int Assign (particle_t&);
-    void Mark (const Bin*);
+    void Assign (particle_t&);
     void Flush ();
 
     Bin ();
@@ -33,12 +33,10 @@ class BinArray
     
     pthread_mutexattr_t attr;
     pthread_mutex_t lock;
-  // private:
+    
     std::list<particle_t*> particles;
-    std::list<Bin*> markings;
 
     Bin* neighbors[9];
-    bool is_nil;
   };
 
   ~BinArray ();
@@ -52,7 +50,6 @@ class BinArray
   int dim_bins;
 
   Bin *bins;
-  //Bin *active_array_head;
 
   Bin *nil;
 
